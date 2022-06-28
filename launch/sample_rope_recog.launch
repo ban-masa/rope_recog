@@ -1,0 +1,29 @@
+<launch>
+  <param name="use_sim_time" type="bool" value="True" />
+  <arg name="rope_type" default="white"/>
+  <group if="$(eval rope_type=='blue')">
+    <node pkg="rosbag" type="play" name="rosbag" args="/home/leus/catkin_ws/src/rope_recog/rosbag/2022-06-08-16-56-46.bag" />
+  </group>
+  <group if="$(eval rope_type=='white')">
+    <node pkg="rosbag" type="play" name="rosbag" args="/home/leus/workspace/20220407/2022-04-07-15-37-02.bag" />
+  </group>
+  <!--
+  <node name="virtual_camera" pkg="jsk_perception" type="image_publisher.py">
+    <remap from="~output" to="~image_color" />
+    <remap from="~output/camera_info" to="~camera_info" />
+    <rosparam subst_value="true">
+      file_name: /home/leus/Pictures/lake.jpg
+      encoding: bgr8
+      publish_info: true
+    </rosparam>
+  </node>
+  -->
+
+  <node pkg="rqt_reconfigure" type="rqt_reconfigure" name="rqt_reconfigure" />
+  <node pkg="rope_recog" type="color_filter_node" name="rope_recog">
+    <remap from="~image_raw" to="/camera/color/image_raw" />
+  </node>
+  <node pkg="image_view2" type="image_view2" name="image_viewer">
+    <remap from="/image" to="/rope_recog/output_video" />
+  </node>
+</launch>

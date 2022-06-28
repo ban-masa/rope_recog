@@ -1,0 +1,7 @@
+<launch>
+  <arg name="bag_file" default="hoge"/>
+  <param name="use_sim_time" type="bool" value="True" />
+  <param name="/robot_description" textfile="$(find tendon_robot_models)/models/MUSASHIWHEELED_WH_SENSORS.urdf" />
+  <node pkg="rosbag" type="play" name="rosbag" args="--clock $(arg bag_file)" />
+  <node pkg="rviz" type="rviz" name="rviz" args="-d /home/leus/workspace/play_rosbag.rviz" />
+</launch>
