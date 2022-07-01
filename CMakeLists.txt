@@ -141,6 +141,7 @@ add_library(${PROJECT_NAME}
 add_executable(color_filter_node src/color_filter.cpp)
 add_executable(node_handler_test src/node_handler_test.cpp)
 add_executable(clustering_test src/clustering.cpp)
+add_executable(rope_filter src/rope_filter.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -167,6 +168,12 @@ target_link_libraries(
 
 target_link_libraries(
   clustering_test
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+)
+
+target_link_libraries(
+  rope_filter
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )

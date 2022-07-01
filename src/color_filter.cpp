@@ -116,7 +116,8 @@ public:
     //cannyEdge(result, cv_ptr2->image);
     //movingTrimming(result, cv_ptr2->image);
     cv::Mat trimmed_img;
-    movingTrimming(result, trimmed_img);
+    //movingTrimming(result, trimmed_img);
+    movingTrimming2(hsv_image, trimmed_img);
     //cv::cvtColor(result, cv_ptr2->image, CV_HSV2BGR);
 
     autoFilter2();
@@ -227,6 +228,73 @@ public:
     blue_img.copyTo(output_img, canny_img);
   }
 
+  void movingTrimming2(cv::Mat& src_img, cv::Mat& output_img)
+  {
+    cv::Mat bgr_img, gray_img;
+    cv::cvtColor(src_img, bgr_img, CV_HSV2BGR);
+    cv::cvtColor(bgr_img, gray_img, CV_BGR2GRAY);
+    cv::Mat gray_float_img;
+    gray_img.convertTo(gray_float_img, CV_32FC1);
+
+    if (store_img.empty()) {
+      gray_float_img.copyTo(store_img);
+    }
+    cv::Mat diff_img(gray_img.size(), CV_32FC1, cv::Scalar(0));
+    cv::accumulateWeighted(gray_img, store_img, 0.5);
+    cv::absdiff(gray_float_img, store_img, diff_img);
+    diff_img.convertTo(gray_img, CV_8UC1);
+    cv::threshold(gray_img, gray_img, 20, 255, cv::THRESH_BINARY);
+
+    cv::Mat trimmed_img;
+    src_img.copyTo(trimmed_img, gray_img);
+    cv::inRange(trimmed_img, cv::Scalar(h_llimit, s_llimit, v_llimit), cv::Scalar(h_ulimit, s_ulimit, v_ulimit), gray_img);
+
+    cv::morphologyEx(gray_img, gray_img, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 10)));
+    //cv::threshold(gray_img, gray_img, 20, 255, cv::THRESH_BINARY);
+
+    cv::morphologyEx(gray_img, gray_img, cv::MORPH_CLOSE, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 10)));
+    //cv::cvtColor(gray_img, result_img_array.at(2), CV_GRAY2BGR);
+    cv::threshold(gray_img, gray_img, 20, 255, cv::THRESH_BINARY);
+
+
+    cv::Mat result_img(bgr_img.size(), CV_8UC3, cv::Scalar(0, 0, 0));
+    result_img.copyTo(output_img);
+    //cv::cvtColor(gray_img, result_img, CV_GRAY2BGR);
+    bgr_img.copyTo(output_img, gray_img);
+    //cv::cvtColor(gray_img, output_img, CV_GRAY2BGR);
+
+    //output_img.copyTo(result_img_array.at(2));
+    cv::Mat output_gray_img;
+    cv::cvtColor(output_img, output_gray_img, CV_BGR2GRAY);
+
+    //cv::morphologyEx(output_gray_img, output_gray_img, cv::MORPH_OPEN, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
+    cv::Mat resized_output_img;
+    double resize_scale = 0.2;
+    cv::resize(output_gray_img, resized_output_img, cv::Size(0, 0), resize_scale, resize_scale, cv::INTER_AREA);
+    cv::threshold(resized_output_img, resized_output_img, 30, 255, cv::THRESH_BINARY);
+    cv::resize(resized_output_img, output_gray_img, cv::Size(0, 0), 1.0 / resize_scale, 1.0 / resize_scale, cv::INTER_LINEAR);
+    cv::threshold(output_gray_img, output_gray_img, 50, 255, cv::THRESH_BINARY);
+
+    /*
+    cv::resize(output_gray_img, resized_output_img, cv::Size(0, 0), 1, resize_scale, cv::INTER_AREA);
+    cv::threshold(resized_output_img, resized_output_img, 30, 255, cv::THRESH_BINARY);
+    cv::resize(resized_output_img, output_gray_img, cv::Size(0, 0), 1, 1.0 / resize_scale, cv::INTER_LINEAR);
+    cv::threshold(output_gray_img, output_gray_img, 50, 255, cv::THRESH_BINARY);
+    */
+
+
+    cv::Mat canny_img;
+    cv::Canny(output_gray_img, canny_img, 50, 200);
+
+    //cv::cvtColor(output_gray_img, result_img_array.at(3), CV_GRAY2BGR);
+    threshArea(output_gray_img, result_img_array.at(3));
+
+    result_img.copyTo(output_img);
+    bgr_img.copyTo(output_img, output_gray_img);
+    cv::Mat blue_img(bgr_img.size(), CV_8UC3, cv::Scalar(255, 0, 0));
+    blue_img.copyTo(output_img, canny_img);
+  }
+
   void lineDetection(cv::Mat& src_img, cv::Mat& output_img)
   {
     cv::Mat canny_img;
@@ -241,6 +309,8 @@ public:
 
   void threshArea(cv::Mat& src_img, cv::Mat& output_img)
   {
+    cv::Mat rope_img(src_img.size(), CV_8UC1, cv::Scalar(0));
+
     cv::cvtColor(src_img, output_img, CV_GRAY2BGR);
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
@@ -266,7 +336,7 @@ public:
       if ((h > w * rect_ratio) || (w > h * rect_ratio)) {
         shape_check_flag = true;
       }
-      if ((area > 100.0) && shape_check_flag) {
+      if ((area > 100.0)) {// && shape_check_flag) {
         selected_contours.push_back(contours[i]);
         cv::Point2f vertices2f[4];
         rrect.points(vertices2f);
@@ -278,6 +348,56 @@ public:
       }
     }
     cv::drawContours(output_img, selected_contours, -1, cv::Scalar(0, 255, 0), CV_FILLED);
+    cv::drawContours(rope_img, selected_contours, -1, cv::Scalar(255), CV_FILLED);
+
+    std::vector<std::array<int, 2> > rope_point_list;
+    ropeShapeEstimation(rope_img, rope_point_list);
+
+    for (int i = 0; i < rope_point_list.size(); i++) {
+      std::array<int, 2> p = rope_point_list[i];
+      cv::circle(output_img, cv::Point(p.at(0), p.at(1)), 5, cv::Scalar(0, 0, 255), -1);
+    }
+    for (int i = 0; i < ((int)rope_point_list.size() - 1); i++) {
+      std::array<int, 2> p0 = rope_point_list[i];
+      std::array<int, 2> p1 = rope_point_list[i + 1];
+      cv::line(output_img, cv::Point(p0.at(0), p0.at(1)), cv::Point(p1.at(0), p1.at(1)), cv::Scalar(0, 0, 255), 3);
+    }
+  }
+
+  void ropeShapeEstimation(cv::Mat& filtered_img, std::vector<std::array<int, 2> >& rope_point_list)
+  {
+    cv::Mat resized_img;
+    cv::resize(filtered_img, resized_img, cv::Size(filtered_img.cols, 100));
+
+    for (int y = 0; y < resized_img.rows; y++) {
+      unsigned char* line_img = resized_img.ptr<unsigned char>(y);
+      bool seq_flag = false;
+      int startx;
+      int max_len = -1;
+      int centerx = -1;
+      for (int x = 0; x < resized_img.cols; x++) {
+        if(line_img[x] != 0) {
+          if (!seq_flag) {
+            seq_flag = true;
+            startx = x;
+          }
+        } else {
+          if (seq_flag) {
+            seq_flag = false;
+            if ((x - startx) > max_len) {
+              max_len = x -startx;
+              centerx = (int)(0.5 * (x + startx));
+            }
+          }
+        }
+      }
+      if (max_len > 0) {
+        std::array<int, 2> p;
+        p.at(0) = centerx;
+        p.at(1) = (int)(filtered_img.rows * y / 100.0);
+        rope_point_list.push_back(p);
+      }
+    }
   }
 
   void autoFilter2(void)

@@ -1,6 +1,6 @@
 <launch>
   <node pkg="rqt_reconfigure" type="rqt_reconfigure" name="rqt_reconfigure" />
-  <node pkg="rope_recog" type="color_filter_node" name="rope_recog">
+  <node pkg="rope_recog" type="rope_filter" name="rope_recog">
     <remap from="~image_raw" to="/camera_remote/rgb/image_rect_color" />
   </node>
   <node pkg="image_view2" type="image_view2" name="image_viewer">
